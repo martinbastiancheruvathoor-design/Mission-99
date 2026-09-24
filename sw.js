@@ -1,4 +1,4 @@
-const CACHE='mission99-personal-v2';
+const CACHE='mission99-stars-personal-v2';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./personal/og-hero.png','./personal/og-character.png','./personal/og-family.png','./personal/og-study.png','./personal/og-work.png','./personal/og-body.png'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).catch(()=>{}))});
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
