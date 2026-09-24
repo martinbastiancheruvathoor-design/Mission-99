@@ -19,6 +19,13 @@ button.secondary{background:#eef0f3;color:#111827}.section{font-weight:800;margi
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#f8f9fa;border-radius:12px;padding:12px}.stat b{display:block;font-size:18px}.history{max-height:280px;overflow:auto}.hist{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
 .note{width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;resize:vertical}.actions{display:flex;gap:8px;flex-wrap:wrap}.danger{background:#b42318}
 @media(max-width:480px){.pillars{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.q{grid-template-columns:1fr 76px}}
+
+.chartBox{margin-top:12px;padding:12px;background:#f8f9fa;border-radius:12px}
+.barRow{display:grid;grid-template-columns:125px 1fr 58px;gap:8px;align-items:center;margin:9px 0;font-size:12px}
+.barTrack{height:18px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+.barFill{height:100%;background:#111827;border-radius:99px;transition:width .25s ease}
+.chartTitle{font-weight:800;margin-bottom:8px}
+@media(max-width:480px){.barRow{grid-template-columns:105px 1fr 52px;font-size:11px}}
 </style>
 </head>
 <body>
@@ -73,8 +80,54 @@ button.secondary{background:#eef0f3;color:#111827}.section{font-weight:800;margi
   <div class="history" id="history"></div>
 </div>
 
-<div class="actions"><button class="secondary" id="installBtn" style="display:none" onclick="installApp()">📱 Install App</button>
+
+<div class="card">
+  <div class="section">🔎 REVIEW A DAY</div>
+  <div class="row">
+    <div class="grow">
+      <label class="sub">Enter Day number</label>
+      <input id="reviewDay" type="number" min="1" max="99" value="1">
+    </div>
+    <button id="reviewBtn">Review day</button>
+  </div>
+  <div id="dayReview" style="margin-top:12px"></div>
+</div>
+
+<div class="card">
+  <div class="section">📅 WEEKLY REPORT</div>
+  <div class="row">
+    <div class="grow">
+      <label class="sub">Mission week</label>
+      <select id="weekSelect" style="width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff;font-size:16px"></select>
+    </div>
+    <button id="weekBtn">View week</button>
+  </div>
+  <div id="weekReport" style="margin-top:12px"></div>
+</div>
+
+<div class="card">
+  <div class="section">🗓️ MONTHLY REPORT</div>
+  <div class="row">
+    <div class="grow">
+      <label class="sub">Month</label>
+      <select id="monthSelect" style="width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff;font-size:16px"></select>
+    </div>
+    <button id="monthBtn">View month</button>
+  </div>
+  <div id="monthReport" style="margin-top:12px"></div>
+</div>
+
+<div class="card">
+  <div class="section">🏁 OVERALL REPORT — MISSION 99</div>
+  <button id="overallBtn">Generate overall report</button>
+  <div id="overallReport" style="margin-top:12px"></div>
+</div>
+
+<div class="actions">
+  <button class="secondary" id="installBtn" style="display:none" onclick="installApp()">📱 Install App</button>
+  <button id="load">Load day</button>
   <button id="save">Save day</button>
+  <button class="danger" id="deleteDay">🗑️ Delete this day</button>
   <button class="secondary" id="new">New day</button>
   <button class="secondary" id="export">Export data</button>
   <button class="danger" id="clear">Clear all</button>
@@ -121,6 +174,7 @@ let records=JSON.parse(localStorage.getItem(dataKey)||"[]");
 
 function todayISO(){return new Date().toISOString().slice(0,10)}
 $("date").value=todayISO();
+$("day").addEventListener("change",()=>{ const d=Math.max(1,Math.min(99,Number($("day").value)||1)); $("day").value=d; $("reviewDay").value=d; });
 
 function render(){
  let root=$("sections"); root.innerHTML="";
@@ -167,10 +221,11 @@ function formData(){
 function save(){
  const d=formData(),i=records.findIndex(r=>r.day===d.day);
  if(i>=0)records[i]=d;else records.push(d);
- records.sort((a,b)=>a.day-b.day);localStorage.setItem(dataKey,JSON.stringify(records));renderHistory();renderStats();
+ records.sort((a,b)=>a.day-b.day);localStorage.setItem(dataKey,JSON.stringify(records));renderHistory();renderStats();reviewDay();weeklyReport();monthlyReport();overallReport();
 }
 function renderHistory(){
- $("history").innerHTML=records.length?records.map(r=>`<div class="hist"><span>Day ${r.day} • ${r.date}</span><b>${r.total}/210</b></div>`).join(""):"<div class='sub'>No saved days yet.</div>";
+ $("history").innerHTML=records.length?records.map(r=>`<div class="hist" data-review="${r.day}" style="cursor:pointer"><span>Day ${r.day} • ${r.date}</span><b>${r.total}/210</b></div>`).join(""):"<div class='sub'>No saved days yet.</div>";
+ document.querySelectorAll("[data-review]").forEach(el=>el.onclick=()=>{ $("reviewDay").value=el.dataset.review; reviewDay(); window.scrollTo({top:document.getElementById("dayReview").getBoundingClientRect().top+window.scrollY-20,behavior:"smooth"}); });
 }
 function renderStats(){
  let n=records.length,avg=n?Math.round(records.reduce((a,r)=>a+r.total,0)/n):0,best=n?Math.max(...records.map(r=>r.total)):0;
@@ -178,14 +233,122 @@ function renderStats(){
 }
 function resetForm(day){
  $("day").value=day; $("date").value=todayISO();
+$("day").addEventListener("change",()=>{ const d=Math.max(1,Math.min(99,Number($("day").value)||1)); $("day").value=d; $("reviewDay").value=d; });
  document.querySelectorAll(".mark").forEach(x=>x.value=0);
  ["studyH","studyM"].forEach(id=>$(id).value=0);["bed","wake"].forEach(id=>$(id).value="");
  ["win","lesson","tomorrow"].forEach(id=>$(id).value="");calc();
 }
-$("save").onclick=()=>{save();alert("Mission 99 day saved.");};
+function loadSavedDay(){
+  const d=Math.max(1,Math.min(99,Number($("day").value)||1));
+  const r=records.find(x=>x.day===d);
+  if(!r){ alert("No saved entry for Day "+d+"."); return; }
+  $("date").value=r.date||todayISO();
+  document.querySelectorAll(".mark").forEach((x,i)=>x.value=r.marks?.[i]??0);
+  $("studyH").value=r.studyH||0; $("studyM").value=r.studyM||0;
+  $("bed").value=r.bed||""; $("wake").value=r.wake||"";
+  $("win").value=r.win||""; $("lesson").value=r.lesson||""; $("tomorrow").value=r.tomorrow||"";
+  calc();
+}
+$("load").onclick=()=>{loadSavedDay(); $("reviewDay").value=$("day").value; reviewDay();};
+$("save").onclick=()=>{save();alert("Mission 99 Day "+$("day").value+" saved.");};
+$("deleteDay").onclick=()=>{
+  const d=Math.max(1,Math.min(99,Number($("day").value)||1));
+  const exists=records.some(r=>r.day===d);
+  if(!exists){alert("There is no saved entry for Day "+d+".");return;}
+  if(confirm("Delete the saved entry for Day "+d+"? This cannot be undone.")){
+    records=records.filter(r=>r.day!==d);
+    localStorage.setItem(dataKey,JSON.stringify(records));
+    resetForm(d); renderHistory(); renderStats(); reviewDay(); weeklyReport(); monthlyReport(); overallReport();
+    alert("Day "+d+" deleted.");
+  }
+};
 $("new").onclick=()=>resetForm(Math.min(99,Number($("day").value||1)+1));
 $("export").onclick=()=>{const blob=new Blob([JSON.stringify(records,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="mission99-data.json";a.click();URL.revokeObjectURL(a.href)};
-$("clear").onclick=()=>{if(confirm("Clear all saved Mission 99 data?")){records=[];localStorage.removeItem(dataKey);renderHistory();renderStats();resetForm(1)}};
+$("clear").onclick=()=>{if(confirm("Clear all saved Mission 99 data?")){records=[];localStorage.removeItem(dataKey);renderHistory();renderStats();resetForm(1);reviewDay();weeklyReport();monthlyReport();overallReport()}};
+
+function fmtMinutes(total){
+  total=Math.max(0,Number(total)||0);
+  return Math.floor(total/60)+"h "+(total%60)+"m";
+}
+function sleepMinutes(b,w){
+  if(!b||!w)return 0;
+  const a=b.split(":").map(Number), c=w.split(":").map(Number);
+  let x=a[0]*60+a[1], y=c[0]*60+c[1];
+  if(y<=x)y+=1440;
+  return y-x;
+}
+function recForDay(d){return records.find(r=>Number(r.day)===Number(d));}
+
+function barChart(items,title,maxValue){
+  if(!items.length)return "";
+  return `<div class="chartBox"><div class="chartTitle">${title}</div>`+
+    items.map(x=>`<div class="barRow"><span>${x.label}</span><div class="barTrack"><div class="barFill" style="width:${Math.max(0,Math.min(100,(x.value/maxValue)*100))}%"></div></div><b>${x.display??x.value}</b></div>`).join("")+
+    `</div>`;
+}
+function pillarChart(list,title){
+  if(!list.length)return "";
+  const sums=[0,0,0,0,0];
+  list.forEach(r=>r.pillars.forEach((v,i)=>sums[i]+=v));
+  return barChart(sums.map((v,i)=>({label:sections[i][0].replace(/^.{1,2}/,"").trim(),value:Math.round(v/list.length),display:Math.round(v/list.length)+"/"+sections[i][1]})),title,10);
+}
+function reportRange(list,title){
+  const logged=list.length;
+  if(!logged)return `<div class="sub">No saved days in ${title}.</div>`;
+  const total=list.reduce((a,r)=>a+r.total,0);
+  const avg=Math.round(total/logged);
+  const sums=[0,0,0,0,0];
+  list.forEach(r=>r.pillars.forEach((v,i)=>sums[i]+=v));
+  const avgP=sums.map((v,i)=>`${sections[i][0]}: ${Math.round(v/logged)}/${sections[i][1]}`).join("<br>");
+  const study=list.reduce((a,r)=>a+(r.studyH*60+r.studyM),0);
+  const sleep=list.reduce((a,r)=>a+sleepMinutes(r.bed,r.wake),0);
+  const avgSleep=Math.round(sleep/logged);
+  const highest=list.reduce((a,b)=>b.total>a.total?b:a);
+  const lowest=list.reduce((a,b)=>b.total<a.total?b:a);
+  const pillarBar=pillarChart(list,"Average pillar score (out of 10)",10);
+  return `<div class="stat" style="margin-bottom:8px"><b>${logged} day${logged===1?"":"s"} logged</b><br>Average score: <b>${avg}/210</b><br>Total points: <b>${total}</b><br>Study time: <b>${fmtMinutes(study)}</b><br>Average sleep: <b>${fmtMinutes(avgSleep)}</b><br>Highest recorded day: <b>Day ${highest.day} — ${highest.total}/210</b><br>Lowest recorded day: <b>Day ${lowest.day} — ${lowest.total}/210</b></div><div class="pillar">${avgP}</div>${pillarBar}`;
+}
+function reviewDay(){
+  const d=Math.max(1,Math.min(99,Number($("reviewDay").value)||1)); $("reviewDay").value=d;
+  const r=recForDay(d);
+  if(!r){$("dayReview").innerHTML="<div class='sub'>Day "+d+" has not been saved yet.</div>";return;}
+  const scores=r.pillars.map((v,i)=>`${sections[i][0]}: <b>${v}/${sections[i][1]}</b>`).join("<br>");
+  const sleep=fmtMinutes(sleepMinutes(r.bed,r.wake));
+  const dailyChart=barChart(r.pillars.map((v,i)=>({label:sections[i][0].replace(/^.{1,2}/,"").trim(),value:(v/sections[i][1])*10,display:v+"/"+sections[i][1]})),"Daily pillar performance",10);
+  $("dayReview").innerHTML=`<div class="stat"><b>Day ${r.day} • ${r.date}</b><br><span class="score">${r.total}/210</span><br>${scores}<br><br>📚 Study: <b>${r.studyH}h ${r.studyM}m</b><br>💤 Sleep: <b>${sleep}</b><br>Bed: ${r.bed||"—"} • Wake: ${r.wake||"—"}<br><br>🏆 Win: ${r.win||"—"}<br>🧠 Lesson: ${r.lesson||"—"}<br>🎯 Tomorrow: ${r.tomorrow||"—"}</div>${dailyChart}<div class="sub" style="margin-top:8px">Individual marks: ${r.marks.join(" • ")}</div>`;
+}
+function initReportSelectors(){
+  const ws=$("weekSelect"); ws.innerHTML="";
+  for(let w=1;w<=15;w++){let start=(w-1)*7+1,end=Math.min(99,w*7);ws.innerHTML+=`<option value="${w}">Week ${w} — Days ${start}-${end}</option>`;}
+  const ms=$("monthSelect"); ms.innerHTML="";
+  [["September 2026",9,2026],["October 2026",10,2026],["November 2026",11,2026],["December 2026",12,2026]].forEach((x,i)=>ms.innerHTML+=`<option value="${i}">${x[0]}</option>`);
+}
+function weeklyReport(){
+  const w=Number($("weekSelect").value||1), start=(w-1)*7+1,end=Math.min(99,w*7);
+  const list=records.filter(r=>r.day>=start&&r.day<=end);
+  const chart=barChart(list.map(r=>({label:"Day "+r.day,value:r.total,display:r.total+"/210"})),"Daily score this week",210);
+  $("weekReport").innerHTML=reportRange(list,`Week ${w}`)+chart;
+}
+function monthlyReport(){
+  const names=[["September 2026",2026,8],["October 2026",2026,9],["November 2026",2026,10],["December 2026",2026,11]];
+  const [name,y,m]=names[Number($("monthSelect").value||0)];
+  const list=records.filter(r=>{const d=new Date(r.date+"T00:00:00");return d.getFullYear()===y&&d.getMonth()===m;});
+  const chart=barChart(list.map(r=>({label:"Day "+r.day,value:r.total,display:r.total+"/210"})),"Daily scores this month",210);
+  $("monthReport").innerHTML=reportRange(list,name)+chart;
+}
+function overallReport(){
+  const chart=barChart(records.map(r=>({label:"D"+r.day,value:r.total,display:r.total+"/210"})),"Mission 99 daily scores",210);
+  $("overallReport").innerHTML=reportRange(records,"the mission")+chart;
+}
+$("reviewBtn").onclick=reviewDay;
+$("weekBtn").onclick=weeklyReport;
+$("monthBtn").onclick=monthlyReport;
+$("overallBtn").onclick=overallReport;
+initReportSelectors();
+reviewDay();
+weeklyReport();
+monthlyReport();
+overallReport();
+
 renderHistory();renderStats();calc();
 </script>
 
